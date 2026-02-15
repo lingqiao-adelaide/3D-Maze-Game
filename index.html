@@ -152,9 +152,14 @@
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
     background: rgba(0,0,0,0.92);
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
     z-index: 100;
+    display: flex;
+    flex-direction: column;
+  }
+  #instructions .scrollarea {
+    flex: 1;
+    overflow-y: scroll;
+    -webkit-overflow-scrolling: touch;
     padding: 20px 0;
   }
   #instructions .box {
@@ -197,9 +202,15 @@
   #instructions .gem { color: #0ff; }
   #instructions .rock { color: #b87333; }
   #instructions .gold { color: #ffd700; }
+  #playBtnBar {
+    flex-shrink: 0;
+    padding: 12px 0 env(safe-area-inset-bottom, 12px);
+    background: rgba(0,0,0,0.95);
+    border-top: 2px solid #ffd700;
+    text-align: center;
+  }
   #playBtn {
-    display: block;
-    margin: 20px auto 0;
+    display: inline-block;
     padding: 14px 48px;
     font-size: 20px;
     font-family: 'Courier New', monospace;
@@ -282,8 +293,10 @@
     #message { font-size: 24px; }
     #deathText { font-size: 28px; }
     #collectFlash { font-size: 18px; }
-    #instructions .box { padding: 18px 16px; font-size: 13px; margin-bottom: 40px; }
+    #instructions .box { padding: 18px 16px; font-size: 13px; }
     #instructions h1 { font-size: 22px; }
+    #playBtnBar { padding: 10px 0 env(safe-area-inset-bottom, 10px); }
+    #playBtn { padding: 12px 40px; font-size: 18px; }
   }
 
   @media (max-width: 600px) {
@@ -306,39 +319,42 @@
 
 <!-- Instructions overlay -->
 <div id="instructions">
-  <div class="box">
-    <h1>3D Maze Adventure</h1>
-    <p>Navigate through 20 increasingly challenging maze levels. Find the <span class="gold">golden treasure</span> before time runs out!</p>
+  <div class="scrollarea">
+    <div class="box">
+      <h1>3D Maze Adventure</h1>
+      <p>Navigate through 20 increasingly challenging maze levels. Find the <span class="gold">golden treasure</span> before time runs out!</p>
 
-    <h2>Controls (Keyboard)</h2>
-    <p>
-      <span class="key">Up</span> Move forward &nbsp;
-      <span class="key">Down</span> Move backward<br>
-      <span class="key">Left</span> Turn left &nbsp;
-      <span class="key">Right</span> Turn right<br>
-      <span class="key">Space</span> Jump &nbsp;
-      <span class="key">D</span> Drop path marker
-    </p>
+      <h2>Controls (Keyboard)</h2>
+      <p>
+        <span class="key">Up</span> Move forward &nbsp;
+        <span class="key">Down</span> Move backward<br>
+        <span class="key">Left</span> Turn left &nbsp;
+        <span class="key">Right</span> Turn right<br>
+        <span class="key">Space</span> Jump &nbsp;
+        <span class="key">D</span> Drop path marker
+      </p>
 
-    <h2>Controls (Touch / Mobile)</h2>
-    <p>Use the on-screen buttons: D-pad to move and turn, JUMP button to jump, MARK button to drop a path marker.</p>
+      <h2>Controls (Touch / Mobile)</h2>
+      <p>Use the on-screen buttons: D-pad to move and turn, JUMP button to jump, MARK button to drop a path marker.</p>
 
-    <h2>How to Play</h2>
-    <p>
-      <span class="gold">Golden walls</span> = the exit treasure. Walk into it to complete the level.<br>
-      <span class="gem">Cyan sparkles</span> = collectible gems. Pick them up for bonus points and to <b>reveal the map for 10 seconds</b>.<br>
-      <span class="rock">Brown blocks</span> = pushable rocks. Walk into them to push.<br>
-      <span class="lava">Red/orange glow</span> = lava! Step on it and you burn. But you can:
-    </p>
-    <ul style="margin-left:18px; margin-top:4px;">
-      <li><b>Jump over</b> lava (1 tile wide)</li>
-      <li><b>Push a rock into lava</b> to fill it and walk across</li>
-    </ul>
-    <p style="margin-top:8px;">
-      Drop <span style="color:#2d2">green markers</span> with <span class="key">D</span> to remember where you've been.<br>
-      Each level has a <b>time limit</b> &mdash; watch the countdown!
-    </p>
-
+      <h2>How to Play</h2>
+      <p>
+        <span class="gold">Golden walls</span> = the exit treasure. Walk into it to complete the level.<br>
+        <span class="gem">Cyan sparkles</span> = collectible gems. Pick them up for bonus points and to <b>reveal the map for 10 seconds</b>.<br>
+        <span class="rock">Brown blocks</span> = pushable rocks. Walk into them to push.<br>
+        <span class="lava">Red/orange glow</span> = lava! Step on it and you burn. But you can:
+      </p>
+      <ul style="margin-left:18px; margin-top:4px;">
+        <li><b>Jump over</b> lava (1 tile wide)</li>
+        <li><b>Push a rock into lava</b> to fill it and walk across</li>
+      </ul>
+      <p style="margin-top:8px;">
+        Drop <span style="color:#2d2">green markers</span> with <span class="key">D</span> to remember where you've been.<br>
+        Each level has a <b>time limit</b> &mdash; watch the countdown!
+      </p>
+    </div>
+  </div>
+  <div id="playBtnBar">
     <button id="playBtn">PLAY</button>
   </div>
 </div>
