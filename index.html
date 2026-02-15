@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<title>3D Maze Adventure</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body {
+    background: #000;
+    font-family: 'Courier New', monospace;
+    overflow: hidden;
+    height: 100%;
+    touch-action: none;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  #gameWrapper {
+    position: relative;
+    width: 800px;
+    height: 500px;
+  }
+  #gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+    image-rendering: pixelated;
+  }
+  #minimap {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: 2px solid #0f0;
+    opacity: 0;
+    transition: opacity 0.5s;
+    z-index: 5;
+  }
+  #levelInfo {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    color: #ffd700;
+    font-size: 14px;
+    text-shadow: 0 0 8px #ffd700;
+    z-index: 5;
+  }
+  #scoreInfo {
+    position: absolute;
+    top: 28px;
+    left: 8px;
+    color: #0ff;
+    font-size: 12px;
+    text-shadow: 0 0 6px #0ff;
+    z-index: 5;
+  }
+  #countdown {
+    position: absolute;
+    top: 46px;
+    left: 8px;
+    font-size: 16px;
+    transition: color 0.3s;
+    z-index: 5;
+  }
+  #mapTimer {
+    position: absolute;
+    top: 68px;
+    left: 8px;
+    color: #0f0;
+    font-size: 12px;
+    text-shadow: 0 0 6px #0f0;
+    display: none;
+    z-index: 5;
+  }
+  #message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #ffd700;
+    font-size: 36px;
+    text-shadow: 0 0 20px #ffd700, 0 0 40px #ff8c00;
+    display: none;
+    text-align: center;
+    pointer-events: none;
+    animation: pulse 1.5s ease-in-out infinite;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  @keyframes pulse {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    50% { transform: translate(-50%, -50%) scale(1.05); opacity: 0.85; }
+  }
+  #deathOverlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(255, 0, 0, 0);
+    pointer-events: none;
+    transition: background 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 8;
+  }
+  #deathText {
+    color: #ff4400;
+    font-size: 40px;
+    text-shadow: 0 0 30px #ff0000;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  #loading {
+    color: #0f0;
+    font-size: 24px;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 20;
+  }
+  #collectFlash {
+    position: absolute;
+    top: 40%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #0ff;
+    font-size: 24px;
+    text-shadow: 0 0 15px #0ff;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s, transform 0.5s;
+    z-index: 10;
+  }
+  #hud {
+    color: #0f0;
+    font-size: 12px;
+    margin-top: 4px;
+    text-align: center;
+    z-index: 5;
+  }
+
+  /* Instructions overlay */
+  #instructions {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.92);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+  }
+  #instructions .box {
+    background: #111;
+    border: 2px solid #ffd700;
+    border-radius: 12px;
+    padding: 28px 32px;
+    max-width: 520px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    color: #ddd;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  #instructions h1 {
+    color: #ffd700;
+    font-size: 26px;
+    text-align: center;
+    margin-bottom: 16px;
+    text-shadow: 0 0 12px #ff8c00;
+  }
+  #instructions h2 {
+    color: #0ff;
+    font-size: 16px;
+    margin: 14px 0 6px;
+    border-bottom: 1px solid #333;
+    padding-bottom: 4px;
+  }
+  #instructions .key {
+    display: inline-block;
+    background: #333;
+    color: #fff;
+    border: 1px solid #555;
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-size: 12px;
+    margin: 0 2px;
+  }
+  #instructions .lava { color: #ff4400; }
+  #instructions .gem { color: #0ff; }
+  #instructions .rock { color: #b87333; }
+  #instructions .gold { color: #ffd700; }
+  #playBtn {
+    display: block;
+    margin: 20px auto 0;
+    padding: 14px 48px;
+    font-size: 20px;
+    font-family: 'Courier New', monospace;
+    background: #ffd700;
+    color: #000;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    text-shadow: none;
+  }
+  #playBtn:hover { background: #ffed4a; }
+  #playBtn:active { background: #e6c200; }
+
+  /* Touch controls */
+  #touchControls {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 180px;
+    z-index: 50;
+    pointer-events: none;
+  }
+  .touch-btn {
+    position: absolute;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.12);
+    border: 2px solid rgba(255,255,255,0.25);
+    color: rgba(255,255,255,0.6);
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .touch-btn:active, .touch-btn.active {
+    background: rgba(255,255,255,0.3);
+    border-color: rgba(255,255,255,0.5);
+  }
+  #btn-up    { bottom: 120px; left: 70px; }
+  #btn-down  { bottom: 10px;  left: 70px; }
+  #btn-left  { bottom: 65px;  left: 5px; }
+  #btn-right { bottom: 65px;  left: 135px; }
+  #btn-jump {
+    bottom: 65px;
+    right: 20px;
+    width: 80px;
+    height: 80px;
+    font-size: 16px;
+    border-color: rgba(100,255,100,0.4);
+    color: rgba(100,255,100,0.7);
+  }
+  #btn-mark {
+    bottom: 10px;
+    right: 30px;
+    width: 56px;
+    height: 56px;
+    font-size: 11px;
+    border-color: rgba(100,255,100,0.3);
+    color: rgba(100,255,100,0.6);
+  }
+
+  /* Responsive */
+  @media (max-width: 840px) {
+    #gameWrapper {
+      width: 100vw;
+      height: 56.25vw; /* 16:10 aspect */
+      max-height: calc(100vh - 190px);
+    }
+    #hud { font-size: 10px; }
+    #levelInfo { font-size: 11px; }
+    #scoreInfo { font-size: 10px; }
+    #countdown { font-size: 13px; top: 40px; }
+    #mapTimer { font-size: 10px; top: 56px; }
+    #message { font-size: 24px; }
+    #deathText { font-size: 28px; }
+    #collectFlash { font-size: 18px; }
+    #instructions .box { padding: 18px 16px; font-size: 13px; }
+    #instructions h1 { font-size: 22px; }
+  }
+
+  @media (max-width: 600px) {
+    #gameWrapper {
+      height: 50vw;
+      max-height: calc(100vh - 200px);
+    }
+    .touch-btn { width: 52px; height: 52px; font-size: 20px; }
+    #btn-up    { bottom: 110px; left: 56px; }
+    #btn-down  { bottom: 5px;   left: 56px; }
+    #btn-left  { bottom: 52px;  left: 0px; }
+    #btn-right { bottom: 52px;  left: 112px; }
+    #btn-jump  { width: 70px; height: 70px; bottom: 55px; right: 10px; }
+    #btn-mark  { width: 48px; height: 48px; bottom: 5px; right: 20px; font-size: 10px; }
+    #minimap { transform: scale(0.7); transform-origin: top right; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Instructions overlay -->
+<div id="instructions">
+  <div class="box">
+    <h1>3D Maze Adventure</h1>
+    <p>Navigate through 20 increasingly challenging maze levels. Find the <span class="gold">golden treasure</span> before time runs out!</p>
+
+    <h2>Controls (Keyboard)</h2>
+    <p>
+      <span class="key">Up</span> Move forward &nbsp;
+      <span class="key">Down</span> Move backward<br>
+      <span class="key">Left</span> Turn left &nbsp;
+      <span class="key">Right</span> Turn right<br>
+      <span class="key">Space</span> Jump &nbsp;
+      <span class="key">D</span> Drop path marker
+    </p>
+
+    <h2>Controls (Touch / Mobile)</h2>
+    <p>Use the on-screen buttons: D-pad to move and turn, JUMP button to jump, MARK button to drop a path marker.</p>
+
+    <h2>How to Play</h2>
+    <p>
+      <span class="gold">Golden walls</span> = the exit treasure. Walk into it to complete the level.<br>
+      <span class="gem">Cyan sparkles</span> = collectible gems. Pick them up for bonus points and to <b>reveal the map for 10 seconds</b>.<br>
+      <span class="rock">Brown blocks</span> = pushable rocks. Walk into them to push.<br>
+      <span class="lava">Red/orange glow</span> = lava! Step on it and you burn. But you can:
+    </p>
+    <ul style="margin-left:18px; margin-top:4px;">
+      <li><b>Jump over</b> lava (1 tile wide)</li>
+      <li><b>Push a rock into lava</b> to fill it and walk across</li>
+    </ul>
+    <p style="margin-top:8px;">
+      Drop <span style="color:#2d2">green markers</span> with <span class="key">D</span> to remember where you've been.<br>
+      Each level has a <b>time limit</b> &mdash; watch the countdown!
+    </p>
+
+    <button id="playBtn">PLAY</button>
+  </div>
+</div>
+
+<div id="gameWrapper">
+  <canvas id="gameCanvas" width="800" height="500"></canvas>
+  <canvas id="minimap"></canvas>
+  <div id="levelInfo"></div>
+  <div id="scoreInfo"></div>
+  <div id="countdown"></div>
+  <div id="mapTimer"></div>
+  <div id="message"></div>
+  <div id="deathOverlay"><div id="deathText">BURNED IN LAVA!</div></div>
+  <div id="collectFlash">+1 Treasure!</div>
+  <div id="loading">Loading maze...</div>
+</div>
+
+<div id="hud" class="desktop-only">Arrows: Move &amp; Turn | Space: Jump | D: Drop marker | Push rocks into lava!</div>
+
+<!-- Touch controls (shown on mobile) -->
+<div id="touchControls">
+  <div id="btn-up" class="touch-btn">&#9650;</div>
+  <div id="btn-down" class="touch-btn">&#9660;</div>
+  <div id="btn-left" class="touch-btn">&#9664;</div>
+  <div id="btn-right" class="touch-btn">&#9654;</div>
+  <div id="btn-jump" class="touch-btn">JUMP</div>
+  <div id="btn-mark" class="touch-btn">MARK</div>
+</div>
+
+<script>
+const SCREEN_W = 800;
+const SCREEN_H = 500;
+const FOV = Math.PI / 3;
+const HALF_FOV = FOV / 2;
+const NUM_RAYS = 400;
+const MAX_DEPTH = 20;
+const MOVE_SPEED = 0.04;
+const ROT_SPEED = 0.035;
+const JUMP_FORCE = 0.12;
+const GRAVITY = 0.005;
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+const minimapCanvas = document.getElementById('minimap');
+const mctx = minimapCanvas.getContext('2d');
+
+let allLevels = [];
+let currentLevel = 0;
+let map = [];
+let mapW = 0;
+let mapH = 0;
+let player = { x: 1.5, y: 1.5, angle: 0, z: 0, vz: 0, jumping: false };
+let keys = {};
+let gameWon = false;
+let levelComplete = false;
+let dead = false;
+let deadTimer = 0;
+let particles = [];
+let treasureParticles = [];
+let lavaParticles = [];
+let collectParticles = [];
+let rockPushCooldown = 0;
+let collectedTreasures = 0;
+let totalTreasuresInLevel = 0;
+let totalScore = 0;
+let levelTransition = false;
+let levelTransitionTimer = 0;
+let time = 0;
+let levelTimeLimit = 0;
+let levelTimeRemaining = 0;
+let minimapVisible = false;
+let minimapTimer = 0;
+const MAP_VISIBLE_SECONDS = 10;
+const MINIMAP_DURATION = MAP_VISIBLE_SECONDS * 60;
+let markers = [];
+let dropCooldown = 0;
+let gameStarted = false;
+let isMobile = false;
+
+// Detect touch device
+function detectMobile() {
+  isMobile = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0) || window.innerWidth <= 840;
+  if (isMobile) {
+    document.getElementById('touchControls').style.display = 'block';
+    document.getElementById('hud').style.display = 'none';
+  }
+}
+
+// Instructions
+document.getElementById('playBtn').addEventListener('click', () => {
+  document.getElementById('instructions').style.display = 'none';
+  gameStarted = true;
+  startMusic();
+});
+
+async function loadMap() {
+  try {
+    const resp = await fetch('maze-map.json');
+    const data = await resp.json();
+    allLevels = data.levels;
+    document.getElementById('loading').style.display = 'none';
+    detectMobile();
+    loadLevel(0);
+    requestAnimationFrame(gameLoop);
+  } catch (e) {
+    document.getElementById('loading').textContent = 'Error loading maze-map.json! ' + e.message;
+  }
+}
+
+function loadLevel(idx) {
+  currentLevel = idx;
+  const lvl = allLevels[idx];
+  map = lvl.map.map(row => [...row]);
+  mapH = map.length;
+  mapW = map[0].length;
+  player.x = lvl.playerStart.x;
+  player.y = lvl.playerStart.y;
+  player.angle = lvl.playerStart.angle;
+  player.z = 0;
+  player.vz = 0;
+  player.jumping = false;
+  gameWon = false;
+  levelComplete = false;
+  dead = false;
+  deadTimer = 0;
+  rockPushCooldown = 0;
+  collectedTreasures = 0;
+  treasureParticles = [];
+  lavaParticles = [];
+  collectParticles = [];
+  particles = [];
+  markers = [];
+  dropCooldown = 0;
+  minimapVisible = false;
+  minimapTimer = 0;
+  levelTimeLimit = lvl.timeLimit || 120;
+  levelTimeRemaining = levelTimeLimit * 60;
+  document.getElementById('minimap').style.opacity = '0';
+  document.getElementById('mapTimer').style.display = 'none';
+
+  totalTreasuresInLevel = 0;
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (map[y][x] === 5) totalTreasuresInLevel++;
+    }
+  }
+
+  minimapCanvas.width = mapW * 8;
+  minimapCanvas.height = mapH * 8;
+
+  initTreasureParticles();
+  initLavaParticles();
+  updateHUD();
+}
+
+function updateHUD() {
+  const lvl = allLevels[currentLevel];
+  document.getElementById('levelInfo').textContent =
+    'Level ' + (currentLevel + 1) + '/' + allLevels.length + ': ' + lvl.name;
+  document.getElementById('scoreInfo').innerHTML =
+    'Gems: ' + collectedTreasures + '/' + totalTreasuresInLevel +
+    ' | Score: ' + totalScore;
+}
+
+function getCell(x, y) {
+  const gx = Math.floor(x);
+  const gy = Math.floor(y);
+  if (gx < 0 || gy < 0 || gy >= mapH || gx >= mapW) return 1;
+  return map[gy][gx];
+}
+
+function isSolid(cell) {
+  return cell === 1 || cell === 2;
+}
+
+function initTreasureParticles() {
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (map[y][x] === 3) {
+        for (let i = 0; i < 40; i++) {
+          treasureParticles.push({
+            x: x + 0.1 + Math.random() * 0.8,
+            y: y + 0.1 + Math.random() * 0.8,
+            z: Math.random(),
+            speed: 0.005 + Math.random() * 0.015,
+            phase: Math.random() * Math.PI * 2,
+            size: 2 + Math.random() * 3,
+            hue: 30 + Math.random() * 30
+          });
+        }
+      }
+      if (map[y][x] === 5) {
+        for (let i = 0; i < 12; i++) {
+          treasureParticles.push({
+            x: x + 0.2 + Math.random() * 0.6,
+            y: y + 0.2 + Math.random() * 0.6,
+            z: Math.random(),
+            speed: 0.008 + Math.random() * 0.012,
+            phase: Math.random() * Math.PI * 2,
+            size: 1.5 + Math.random() * 2,
+            hue: 170 + Math.random() * 40,
+            tileX: x,
+            tileY: y
+          });
+        }
+      }
+    }
+  }
+}
+
+function initLavaParticles() {
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (map[y][x] === 4) {
+        for (let i = 0; i < 6; i++) {
+          lavaParticles.push({
+            x: x + 0.1 + Math.random() * 0.8,
+            y: y + 0.1 + Math.random() * 0.8,
+            z: 0,
+            vz: 0.01 + Math.random() * 0.02,
+            phase: Math.random() * Math.PI * 2,
+            size: 2 + Math.random() * 3,
+            life: 1,
+            tileX: x,
+            tileY: y
+          });
+        }
+      }
+    }
+  }
+}
+
+function spawnWinParticles() {
+  for (let i = 0; i < 120; i++) {
+    particles.push({
+      x: SCREEN_W / 2 + (Math.random() - 0.5) * 500,
+      y: SCREEN_H / 2 + (Math.random() - 0.5) * 300,
+      vx: (Math.random() - 0.5) * 10,
+      vy: -Math.random() * 8 - 2,
+      life: 1,
+      decay: 0.004 + Math.random() * 0.008,
+      size: 3 + Math.random() * 6,
+      hue: Math.random() * 60 + 20
+    });
+  }
+}
+
+function spawnCollectParticles(sx, sy) {
+  for (let i = 0; i < 20; i++) {
+    collectParticles.push({
+      x: sx, y: sy,
+      vx: (Math.random() - 0.5) * 6,
+      vy: (Math.random() - 0.5) * 6,
+      life: 1,
+      decay: 0.02 + Math.random() * 0.02,
+      size: 2 + Math.random() * 4,
+      hue: 170 + Math.random() * 40
+    });
+  }
+}
+
+function tryPushRock(px, py, dx, dy) {
+  const rockX = Math.floor(px + dx);
+  const rockY = Math.floor(py + dy);
+  if (getCell(rockX, rockY) !== 2) return false;
+  const pushDirX = Math.sign(dx);
+  const pushDirY = Math.sign(dy);
+  let targetX = rockX, targetY = rockY;
+  if (Math.abs(dx) > Math.abs(dy)) targetX = rockX + pushDirX;
+  else targetY = rockY + pushDirY;
+  const destCell = getCell(targetX, targetY);
+  if (destCell === 0 || destCell === 4) {
+    map[rockY][rockX] = 0;
+    if (destCell === 4) {
+      map[targetY][targetX] = 0;
+      lavaParticles = lavaParticles.filter(p => !(p.tileX === targetX && p.tileY === targetY));
+    } else {
+      map[targetY][targetX] = 2;
+    }
+    rockPushCooldown = 15;
+    return true;
+  }
+  return false;
+}
+
+function killPlayer() {
+  if (dead) return;
+  dead = true;
+  deadTimer = 120;
+  document.getElementById('deathOverlay').style.background = 'rgba(255, 30, 0, 0.5)';
+  document.getElementById('deathText').style.opacity = '1';
+}
+
+function respawnPlayer() {
+  dead = false;
+  const lvl = allLevels[currentLevel];
+  player.x = lvl.playerStart.x;
+  player.y = lvl.playerStart.y;
+  player.angle = lvl.playerStart.angle;
+  player.z = 0;
+  player.vz = 0;
+  player.jumping = false;
+  document.getElementById('deathOverlay').style.background = 'rgba(255, 0, 0, 0)';
+  document.getElementById('deathText').style.opacity = '0';
+}
+
+function update() {
+  if (!gameStarted) return;
+  time++;
+
+  if (gameWon) {
+    particles = particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.life -= p.decay;
+      return p.life > 0;
+    });
+    if (particles.length < 30) spawnWinParticles();
+    return;
+  }
+
+  if (levelComplete) {
+    levelTransitionTimer--;
+    if (levelTransitionTimer <= 0) {
+      levelComplete = false;
+      levelTransition = false;
+      if (currentLevel + 1 < allLevels.length) {
+        loadLevel(currentLevel + 1);
+      } else {
+        gameWon = true;
+        document.getElementById('message').style.display = 'block';
+        document.getElementById('message').innerHTML =
+          'YOU CONQUERED ALL LEVELS!<br><span style="font-size:20px">Final Score: ' + totalScore + '</span>';
+        spawnWinParticles();
+      }
+    }
+    particles = particles.filter(p => {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.life -= p.decay;
+      return p.life > 0;
+    });
+    return;
+  }
+
+  if (dead) {
+    deadTimer--;
+    if (deadTimer <= 0) respawnPlayer();
+    return;
+  }
+
+  if (rockPushCooldown > 0) rockPushCooldown--;
+  if (dropCooldown > 0) dropCooldown--;
+
+  // Minimap timer
+  if (minimapVisible) {
+    minimapTimer--;
+    const secs = Math.ceil(minimapTimer / 60);
+    document.getElementById('mapTimer').textContent = 'Map: ' + secs + 's';
+    if (minimapTimer <= 0) {
+      minimapVisible = false;
+      document.getElementById('minimap').style.opacity = '0';
+      document.getElementById('mapTimer').style.display = 'none';
+    }
+  }
+
+  // Level countdown
+  levelTimeRemaining--;
+  const secsLeft = Math.ceil(levelTimeRemaining / 60);
+  const mins = Math.floor(secsLeft / 60);
+  const secs2 = secsLeft % 60;
+  const countdownEl = document.getElementById('countdown');
+  countdownEl.textContent = 'Time: ' + mins + ':' + (secs2 < 10 ? '0' : '') + secs2;
+  if (secsLeft <= 10) {
+    countdownEl.style.color = '#ff2200';
+    countdownEl.style.textShadow = '0 0 12px #ff0000';
+  } else if (secsLeft <= 30) {
+    countdownEl.style.color = '#ff8800';
+    countdownEl.style.textShadow = '0 0 8px #ff6600';
+  } else {
+    countdownEl.style.color = '#0f0';
+    countdownEl.style.textShadow = '0 0 6px #0f0';
+  }
+  if (levelTimeRemaining <= 0) {
+    document.getElementById('deathText').textContent = 'TIME\'S UP!';
+    killPlayer();
+    levelTimeRemaining = levelTimeLimit * 60;
+  }
+
+  // Drop marker
+  if (keys['d'] && dropCooldown === 0) {
+    markers.push({ x: player.x, y: player.y });
+    dropCooldown = 20;
+  }
+
+  // Rotation
+  if (keys['ArrowLeft']) player.angle -= ROT_SPEED;
+  if (keys['ArrowRight']) player.angle += ROT_SPEED;
+
+  // Movement
+  let dx = 0, dy = 0;
+  if (keys['ArrowUp']) {
+    dx += Math.cos(player.angle) * MOVE_SPEED;
+    dy += Math.sin(player.angle) * MOVE_SPEED;
+  }
+  if (keys['ArrowDown']) {
+    dx -= Math.cos(player.angle) * MOVE_SPEED * 0.6;
+    dy -= Math.sin(player.angle) * MOVE_SPEED * 0.6;
+  }
+
+  // Push rocks
+  if (rockPushCooldown === 0 && (dx !== 0 || dy !== 0)) {
+    const frontX = player.x + Math.cos(player.angle) * 0.6;
+    const frontY = player.y + Math.sin(player.angle) * 0.6;
+    if (getCell(frontX, frontY) === 2) {
+      tryPushRock(player.x, player.y, Math.cos(player.angle) * 0.6, Math.sin(player.angle) * 0.6);
+    }
+  }
+
+  const radius = 0.2;
+  let newX = player.x + dx, newY = player.y + dy;
+
+  if (dx !== 0) {
+    const checkX = newX + radius * Math.sign(dx);
+    if (!isSolid(getCell(checkX, player.y)) && !isSolid(getCell(checkX, player.y + radius)) && !isSolid(getCell(checkX, player.y - radius))) {
+      player.x = newX;
+    }
+  }
+  if (dy !== 0) {
+    const checkY = newY + radius * Math.sign(dy);
+    if (!isSolid(getCell(player.x, checkY)) && !isSolid(getCell(player.x + radius, checkY)) && !isSolid(getCell(player.x - radius, checkY))) {
+      player.y = newY;
+    }
+  }
+
+  // Jump
+  if (keys[' '] && !player.jumping) {
+    player.vz = JUMP_FORCE;
+    player.jumping = true;
+  }
+  player.z += player.vz;
+  player.vz -= GRAVITY;
+  if (player.z <= 0) { player.z = 0; player.vz = 0; player.jumping = false; }
+
+  // Lava check
+  const currentCell = getCell(player.x, player.y);
+  if (currentCell === 4) {
+    const isAscending = player.jumping && player.vz > 0;
+    if (player.z < 0.05 && !isAscending) {
+      document.getElementById('deathText').textContent = 'BURNED IN LAVA!';
+      killPlayer();
+    }
+  }
+
+  // Collectible gem
+  if (currentCell === 5) {
+    map[Math.floor(player.y)][Math.floor(player.x)] = 0;
+    collectedTreasures++;
+    totalScore += 100;
+    treasureParticles = treasureParticles.filter(p =>
+      !(p.tileX === Math.floor(player.x) && p.tileY === Math.floor(player.y))
+    );
+    const flash = document.getElementById('collectFlash');
+    flash.style.opacity = '1';
+    flash.style.transform = 'translate(-50%, -50%) scale(1.2)';
+    setTimeout(() => {
+      flash.style.opacity = '0';
+      flash.style.transform = 'translate(-50%, -50%) scale(1)';
+    }, 600);
+    spawnCollectParticles(SCREEN_W / 2, SCREEN_H / 2);
+    minimapVisible = true;
+    minimapTimer = MINIMAP_DURATION;
+    document.getElementById('minimap').style.opacity = '0.8';
+    document.getElementById('mapTimer').style.display = 'block';
+    updateHUD();
+  }
+
+  // Treasure goal
+  if (currentCell === 3) {
+    totalScore += 500 + collectedTreasures * 200;
+    levelComplete = true;
+    levelTransition = true;
+    levelTransitionTimer = 180;
+    document.getElementById('message').style.display = 'block';
+    if (currentLevel + 1 < allLevels.length) {
+      document.getElementById('message').innerHTML =
+        'LEVEL COMPLETE!<br><span style="font-size:18px">+' + (500 + collectedTreasures * 200) + ' points</span>';
+    }
+    spawnWinParticles();
+    setTimeout(() => { document.getElementById('message').style.display = 'none'; }, 2800);
+    updateHUD();
+  }
+
+  // Animate particles
+  treasureParticles.forEach(p => { p.z += p.speed; if (p.z > 1) p.z = 0; p.phase += 0.06; });
+  lavaParticles.forEach(p => {
+    p.z += p.vz; p.phase += 0.08;
+    if (p.z > 0.5) { p.z = 0; p.x = p.tileX + 0.1 + Math.random() * 0.8; p.y = p.tileY + 0.1 + Math.random() * 0.8; }
+  });
+  collectParticles = collectParticles.filter(p => { p.x += p.vx; p.y += p.vy; p.life -= p.decay; return p.life > 0; });
+}
+
+function castRay(angle) {
+  const sin = Math.sin(angle), cos = Math.cos(angle);
+  let dist = 0;
+  const step = 0.02;
+  while (dist < MAX_DEPTH) {
+    dist += step;
+    const testX = player.x + cos * dist;
+    const testY = player.y + sin * dist;
+    const cell = getCell(testX, testY);
+    if (cell === 1 || cell === 2 || cell === 3) return { dist, cell, testX, testY };
+  }
+  return { dist: MAX_DEPTH, cell: 0, testX: 0, testY: 0 };
+}
+
+function getWallColor(cell, dist, testX, testY) {
+  const shade = Math.max(0, 1 - dist / MAX_DEPTH);
+  const fractX = testX - Math.floor(testX);
+  const isVertical = (fractX < 0.02 || fractX > 0.98);
+  const darkSide = isVertical ? 0.7 : 1.0;
+  if (cell === 1) return `rgb(${Math.floor(100*shade*darkSide)},${Math.floor(105*shade*darkSide)},${Math.floor(120*shade*darkSide)})`;
+  if (cell === 2) return `rgb(${Math.floor(150*shade*darkSide)},${Math.floor(110*shade*darkSide)},${Math.floor(65*shade*darkSide)})`;
+  if (cell === 3) { const g=0.6+0.4*Math.sin(Date.now()/400); return `rgb(${Math.floor(255*shade*g)},${Math.floor(215*shade*g)},${Math.floor(15*shade*g)})`; }
+  return '#000';
+}
+
+function render() {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+  const skyGrad = ctx.createLinearGradient(0, 0, 0, SCREEN_H / 2);
+  skyGrad.addColorStop(0, '#0a0a2e'); skyGrad.addColorStop(1, '#1a1a4e');
+  ctx.fillStyle = skyGrad;
+  ctx.fillRect(0, 0, SCREEN_W, SCREEN_H / 2);
+  const floorGrad = ctx.createLinearGradient(0, SCREEN_H / 2, 0, SCREEN_H);
+  floorGrad.addColorStop(0, '#1a1a1a'); floorGrad.addColorStop(1, '#333');
+  ctx.fillStyle = floorGrad;
+  ctx.fillRect(0, SCREEN_H / 2, SCREEN_W, SCREEN_H / 2);
+
+  const jumpOffset = player.z * 200;
+  const columnWidth = SCREEN_W / NUM_RAYS;
+  const depthBuffer = [];
+
+  for (let i = 0; i < NUM_RAYS; i++) {
+    const rayAngle = player.angle - HALF_FOV + (i / NUM_RAYS) * FOV;
+    const hit = castRay(rayAngle);
+    const correctedDist = hit.dist * Math.cos(rayAngle - player.angle);
+    depthBuffer[i] = correctedDist;
+    if (hit.cell > 0) {
+      const wallHeight = (SCREEN_H / correctedDist) * 0.8;
+      const wallTop = (SCREEN_H - wallHeight) / 2 - jumpOffset;
+      ctx.fillStyle = getWallColor(hit.cell, hit.dist, hit.testX, hit.testY);
+      ctx.fillRect(i * columnWidth, wallTop, columnWidth + 1, wallHeight);
+      if (hit.cell === 1 && correctedDist < 6) {
+        const fX = hit.testX - Math.floor(hit.testX), fY = hit.testY - Math.floor(hit.testY);
+        const texCoord = (fX < 0.02 || fX > 0.98) ? fY : fX;
+        for (const line of [0.0, 0.25, 0.5, 0.75, 1.0]) {
+          if (Math.abs(texCoord - line) < 0.02) {
+            ctx.fillStyle = `rgba(0,0,0,${0.3 * Math.max(0, 1 - hit.dist / MAX_DEPTH)})`;
+            ctx.fillRect(i * columnWidth, wallTop, columnWidth + 1, wallHeight);
+          }
+        }
+      }
+      if (hit.cell === 2 && correctedDist < 8) {
+        const s = Math.max(0, 1 - hit.dist / MAX_DEPTH) * 0.15;
+        ctx.fillStyle = `rgba(0,0,0,${s})`;
+        for (let j = 0; j < 3; j++) ctx.fillRect(i * columnWidth, wallTop + wallHeight * (0.2 + j * 0.3), columnWidth, 2);
+      }
+    }
+  }
+
+  renderLavaFloor(depthBuffer, jumpOffset, columnWidth);
+  render3DParticles(depthBuffer, jumpOffset, columnWidth);
+
+  // Markers
+  markers.forEach(m => {
+    const mdx = m.x - player.x, mdy = m.y - player.y;
+    const mdist = Math.sqrt(mdx*mdx + mdy*mdy);
+    let maDiff = Math.atan2(mdy, mdx) - player.angle;
+    while (maDiff > Math.PI) maDiff -= Math.PI*2;
+    while (maDiff < -Math.PI) maDiff += Math.PI*2;
+    if (Math.abs(maDiff) < HALF_FOV && mdist < MAX_DEPTH && mdist > 0.2) {
+      const msx = (0.5 + maDiff / FOV) * SCREEN_W;
+      const mcd = mdist * Math.cos(maDiff);
+      const ri = Math.floor(msx / columnWidth);
+      if (ri >= 0 && ri < NUM_RAYS && mcd < depthBuffer[ri]) {
+        const ph = (SCREEN_H / mcd) * 0.8;
+        const bs = Math.max(3, 14 / mcd);
+        const msy = (SCREEN_H / 2) - jumpOffset + ph * 0.3;
+        const sh = Math.max(0.3, 1 - mdist / 10);
+        ctx.fillStyle = `rgba(${Math.floor(30*sh)},${Math.floor(220*sh)},${Math.floor(50*sh)},0.9)`;
+        ctx.fillRect(msx - bs/2, msy - bs, bs, bs);
+        ctx.fillStyle = `rgba(100,255,120,${sh*0.4})`;
+        ctx.fillRect(msx - bs/2, msy - bs, bs, 2);
+      }
+    }
+  });
+
+  collectParticles.forEach(p => {
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+    ctx.fillStyle = `hsla(${p.hue}, 100%, 70%, ${p.life})`; ctx.fill();
+  });
+
+  if (gameWon || levelComplete) {
+    particles.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 100%, 60%, ${p.life})`; ctx.fill();
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life * 2.5, 0, Math.PI * 2);
+      ctx.fillStyle = `hsla(${p.hue}, 100%, 80%, ${p.life * 0.2})`; ctx.fill();
+    });
+  }
+
+  if (dead) {
+    ctx.fillStyle = `rgba(255, 20, 0, ${0.4 + 0.2 * Math.sin(deadTimer * 0.2)})`;
+    ctx.fillRect(0, 0, SCREEN_W, SCREEN_H);
+  }
+
+  if (!gameWon && !dead && !levelComplete) {
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(SCREEN_W/2 - 8, SCREEN_H/2); ctx.lineTo(SCREEN_W/2 + 8, SCREEN_H/2);
+    ctx.moveTo(SCREEN_W/2, SCREEN_H/2 - 8); ctx.lineTo(SCREEN_W/2, SCREEN_H/2 + 8);
+    ctx.stroke();
+  }
+
+  if (minimapVisible) drawMinimap();
+}
+
+function renderLavaFloor(depthBuffer, jumpOffset, columnWidth) {
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      if (map[y][x] !== 4) continue;
+      const cx = x+0.5, cy = y+0.5;
+      const dx = cx-player.x, dy = cy-player.y;
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if (dist > MAX_DEPTH || dist < 0.3) continue;
+      let angleDiff = Math.atan2(dy, dx) - player.angle;
+      while (angleDiff > Math.PI) angleDiff -= Math.PI*2;
+      while (angleDiff < -Math.PI) angleDiff += Math.PI*2;
+      if (Math.abs(angleDiff) > HALF_FOV + 0.3) continue;
+      const correctedDist = dist * Math.cos(angleDiff);
+      const rayIdx = Math.floor((0.5 + angleDiff / FOV) * NUM_RAYS);
+      if (rayIdx >= 0 && rayIdx < NUM_RAYS && correctedDist < depthBuffer[rayIdx]) {
+        const projectedSize = (SCREEN_H / correctedDist) * 0.4;
+        const screenX = (0.5 + angleDiff / FOV) * SCREEN_W;
+        const floorY = SCREEN_H/2 + (SCREEN_H/correctedDist)*0.25 - jumpOffset;
+        const t = time * 0.05;
+        const flicker = 0.6 + 0.4 * Math.sin(t + x*3 + y*7);
+        const brightness = Math.max(0.15, 1 - dist/10) * flicker;
+        const lavaWidth = projectedSize * 1.8, lavaHeight = projectedSize * 0.6;
+        const r = Math.floor(255*brightness), g = Math.floor((80+60*Math.sin(t*1.3+x))*brightness), b = Math.floor(20*brightness);
+        ctx.fillStyle = `rgba(${r},${g},${b},${brightness*0.7})`;
+        ctx.fillRect(screenX-lavaWidth/2, floorY-lavaHeight/2, lavaWidth, lavaHeight);
+        const g2 = Math.floor((120+80*Math.sin(t*2+y))*brightness);
+        ctx.fillStyle = `rgba(255,${g2},0,${brightness*0.5})`;
+        ctx.fillRect(screenX-lavaWidth*0.3, floorY-lavaHeight*0.25, lavaWidth*0.6, lavaHeight*0.5);
+        const gradient = ctx.createRadialGradient(screenX, floorY, 0, screenX, floorY, lavaWidth);
+        gradient.addColorStop(0, `rgba(255,${g},0,${brightness*0.3})`);
+        gradient.addColorStop(1, 'rgba(255,60,0,0)');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(screenX-lavaWidth, floorY-lavaWidth*0.5, lavaWidth*2, lavaWidth);
+      }
+    }
+  }
+}
+
+function render3DParticles(depthBuffer, jumpOffset, columnWidth) {
+  treasureParticles.forEach(p => {
+    const dx = p.x-player.x, dy = p.y-player.y;
+    const dist = Math.sqrt(dx*dx+dy*dy);
+    let ad = Math.atan2(dy,dx)-player.angle;
+    while(ad>Math.PI)ad-=Math.PI*2; while(ad<-Math.PI)ad+=Math.PI*2;
+    if(Math.abs(ad)<HALF_FOV && dist<MAX_DEPTH && dist>0.3){
+      const sx=(0.5+ad/FOV)*SCREEN_W, cd=dist*Math.cos(ad), ri=Math.floor(sx/columnWidth);
+      if(ri>=0&&ri<NUM_RAYS&&cd<depthBuffer[ri]){
+        const ph=(SCREEN_H/cd)*0.8, sy=(SCREEN_H/2)-jumpOffset+(0.5-p.z)*ph*0.5;
+        const br=Math.max(0,1-dist/8)*(0.5+0.5*Math.sin(p.phase)), sz=p.size*Math.max(1,4/cd);
+        ctx.beginPath();ctx.arc(sx,sy,sz,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${p.hue},100%,${60+br*40}%,${br})`;ctx.fill();
+        ctx.beginPath();ctx.arc(sx,sy,sz*2.5,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${p.hue},100%,80%,${br*0.25})`;ctx.fill();
+      }
+    }
+  });
+  lavaParticles.forEach(p => {
+    const dx=p.x-player.x, dy=p.y-player.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    let ad=Math.atan2(dy,dx)-player.angle;
+    while(ad>Math.PI)ad-=Math.PI*2; while(ad<-Math.PI)ad+=Math.PI*2;
+    if(Math.abs(ad)<HALF_FOV && dist<MAX_DEPTH && dist>0.3){
+      const sx=(0.5+ad/FOV)*SCREEN_W, cd=dist*Math.cos(ad), ri=Math.floor(sx/columnWidth);
+      if(ri>=0&&ri<NUM_RAYS&&cd<depthBuffer[ri]){
+        const ph=(SCREEN_H/cd)*0.8, sy=(SCREEN_H/2)-jumpOffset+(0.3-p.z)*ph*0.4;
+        const br=Math.max(0,1-dist/6)*(0.6+0.4*Math.sin(p.phase)), sz=p.size*Math.max(1,3/cd);
+        const fl=Math.sin(p.phase*2)*20;
+        ctx.beginPath();ctx.arc(sx,sy,sz,0,Math.PI*2);
+        ctx.fillStyle=`hsla(${20+fl},100%,${50+br*30}%,${br*0.8})`;ctx.fill();
+      }
+    }
+  });
+}
+
+function drawMinimap() {
+  const scale = 8;
+  mctx.fillStyle = 'rgba(0,0,0,0.85)';
+  mctx.fillRect(0, 0, mapW * scale, mapH * scale);
+  for (let y = 0; y < mapH; y++) {
+    for (let x = 0; x < mapW; x++) {
+      const cell = map[y][x];
+      if (cell === 1) mctx.fillStyle = '#556';
+      else if (cell === 2) mctx.fillStyle = '#864';
+      else if (cell === 3) { const g=0.7+0.3*Math.sin(time*0.05); mctx.fillStyle=`rgb(${Math.floor(255*g)},${Math.floor(200*g)},0)`; }
+      else if (cell === 4) { const g=0.5+0.5*Math.sin(time*0.08+x+y); mctx.fillStyle=`rgb(${Math.floor(255*g)},${Math.floor(60*g)},0)`; }
+      else if (cell === 5) { const g=0.5+0.5*Math.sin(time*0.06+x*2); mctx.fillStyle=`rgb(0,${Math.floor(255*g)},${Math.floor(255*g)})`; }
+      else continue;
+      mctx.fillRect(x*scale, y*scale, scale, scale);
+    }
+  }
+  markers.forEach(m => { mctx.fillStyle='#2d2'; mctx.fillRect(m.x*scale-2, m.y*scale-2, 4, 4); });
+  mctx.fillStyle = '#0f0';
+  mctx.beginPath(); mctx.arc(player.x*scale, player.y*scale, 3, 0, Math.PI*2); mctx.fill();
+  mctx.strokeStyle = '#0f0'; mctx.lineWidth = 1.5;
+  mctx.beginPath(); mctx.moveTo(player.x*scale, player.y*scale);
+  mctx.lineTo((player.x+Math.cos(player.angle)*1.5)*scale, (player.y+Math.sin(player.angle)*1.5)*scale);
+  mctx.stroke();
+}
+
+function gameLoop() {
+  update();
+  render();
+  requestAnimationFrame(gameLoop);
+}
+
+// Background music
+const bgMusic = new Audio('audio.mp3');
+bgMusic.loop = true;
+bgMusic.volume = 0.4;
+let musicStarted = false;
+function startMusic() {
+  if (!musicStarted) { bgMusic.play().catch(() => {}); musicStarted = true; }
+}
+
+// Keyboard input
+document.addEventListener('keydown', e => {
+  startMusic();
+  keys[e.key] = true;
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+});
+document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+// Touch controls
+const touchMap = {
+  'btn-up': 'ArrowUp',
+  'btn-down': 'ArrowDown',
+  'btn-left': 'ArrowLeft',
+  'btn-right': 'ArrowRight',
+  'btn-jump': ' ',
+  'btn-mark': 'd'
+};
+
+function handleTouchStart(e) {
+  e.preventDefault();
+  startMusic();
+  const key = touchMap[this.id];
+  if (key) keys[key] = true;
+  this.classList.add('active');
+}
+
+function handleTouchEnd(e) {
+  e.preventDefault();
+  const key = touchMap[this.id];
+  if (key) keys[key] = false;
+  this.classList.remove('active');
+}
+
+Object.keys(touchMap).forEach(id => {
+  const btn = document.getElementById(id);
+  if (btn) {
+    btn.addEventListener('touchstart', handleTouchStart, { passive: false });
+    btn.addEventListener('touchend', handleTouchEnd, { passive: false });
+    btn.addEventListener('touchcancel', handleTouchEnd, { passive: false });
+    // Also support mouse for testing
+    btn.addEventListener('mousedown', handleTouchStart);
+    btn.addEventListener('mouseup', handleTouchEnd);
+    btn.addEventListener('mouseleave', handleTouchEnd);
+  }
+});
+
+// Prevent scrolling/zooming on touch
+document.addEventListener('touchmove', e => e.preventDefault(), { passive: false });
+
+// Handle resize
+window.addEventListener('resize', () => { detectMobile(); });
+
+loadMap();
+</script>
+</body>
+</html>
